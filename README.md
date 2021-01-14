@@ -11,6 +11,7 @@ This project is separated into several parts - Classification Methods, Statistic
 
   The resources I used while working on this part include:
     A series of videos from:
+      
       https://www.youtube.com/c/joshstarmer
       
       https://www.youtube.com/user/westlandindia
