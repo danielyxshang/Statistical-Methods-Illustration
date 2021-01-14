@@ -1,0 +1,202 @@
+---
+title: "Statistical Methods Illustration - Classification Methods"
+author: "Daniel Shang"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load the necessary packages
+library(tidylog)
+library(e1071)
+library(ggplot2)
+library(party)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(caret)
+library(ggthemes)
+library(car)
+```
+
+```{r}
+# Load the data, remove missing values (if any), and convert columns to proper formats
+## based on the documentation of the dataset
+data = read.csv('heart.csv', )
+data_clean = na.omit(mutate_all(data, 
+                      ~ifelse(. %in% c("N/A", "null", "", NULL),  NA, .)))
+colnames(data_clean)[1] = 'age'
+data_clean$sex = as.factor(data_clean$sex)
+data_clean$cp = as.factor(data_clean$cp)
+data_clean$fbs = as.factor(data_clean$fbs)
+data_clean$restecg = as.factor(data_clean$restecg)
+data_clean$exang = as.factor(data_clean$exang)
+data_clean$slope = as.factor(data_clean$slope)
+data_clean$ca = as.factor(data_clean$ca)
+data_clean$thal = as.factor(data_clean$thal)
+data_clean$target = as.factor(data_clean$target)
+```
+
+------------------------------------------- Support Vector Machine -------------------------------------------
+```{r}
+# Build a support vector machine (SVM) to predict the 'target' and summarize the model
+svm_model = svm(target ~ ., data = data_clean, kernel = 'linear')
+summary(svm_model)
+```
+
+```{r}
+# Make predictions using the model and compare the outcome with the 'target' values
+## in the dataset. Summarize the prediction accuracy and related statistics using
+## a confusion matrix
+set.seed(123)
+prediction_svm1 = predict(svm_model, data_clean)
+confusionMatrix(prediction_svm1, data_clean$target)
+```
+
+```{r}
+# Use the 'tune' formula to figure out the best parameters for the SVM model to
+## boost the model performance. The darker the color is, the better the model will
+## perform, as indicated by the 'cost' y-axis label.
+set.seed(123)
+tune_svm = tune(svm, target ~ ., data = data_clean, range = list(epsilon = seq(0, 2, 0.1), cost = 2^(2:5)))
+plot(tune_svm)
+```
+
+```{r}
+# Summarize the tuned model
+summary(tune_svm)
+```
+
+```{r}
+# Use the best model tuned by the function and set it as our final model
+set.seed(123)
+final_svm = tune_svm$best.model
+summary(final_svm)
+```
+
+```{r}
+# Use the tuned model to make prediction and compare the accuracy with the previous
+## model. Since the prediction accuracy increased from 0.8779 to 0.9241, we can
+## conclude that the 'tune' function did a great job identifying the best model
+prediction_svm2 = predict(final_svm, data_clean)
+confusionMatrix(prediction_svm2, data_clean$target)
+```
+
+--------------------------------------------- Classification Tree --------------------------------------------
+```{r}
+# Build a classification tree model to predict the target. I used a tree control
+## parameter 'mincriterion.' The value of this parameter will be considered as 
+## 1 - p-value that must be exceeded in order to implement a node split.
+tree_model1 = ctree(target~., data = data_clean, controls = ctree_control(mincriterion = 0.95))
+summary(tree_model1)
+tree_model1
+```
+
+```{r}
+# Plot the tree model built
+plot(tree_model1, type = 'simple')
+```
+
+```{r}
+# Make prediction using the tree model and build a confusion matrix to evaluate
+## its prediction accuracy
+prediction_tree1 = predict(tree_model1, data = data_clean)
+confusionMatrix(prediction_tree1, data_clean$target)
+```
+
+```{r}
+# Build another tree model using a different package
+tree_model2 = rpart(target ~ ., data = data_clean)
+```
+
+```{r}
+# Plot the tree at a certain level of detail
+rpart.plot(tree_model2, extra = 1)
+```
+
+```{r}
+# Make prediction using the second tree model and build a confusion matrix to evaluate
+## the prediction accuracy
+prediction_tree2 = predict(tree_model2, data_clean, type = 'class')
+confusionMatrix(prediction_tree2, data_clean$target)
+```
+
+----------------------------------------------- Random Forest ----------------------------------------------
+```{r}
+# Build a random forest model to predict the 'target' variable in the dataset. I
+## started with a huge number of trees (ntree) so that, based on the plot later,
+## we can easily identify the number of trees that leads to least prediction error
+set.seed(123)
+rf_model1 = randomForest(target ~ ., data = data_clean, ntree = 2000)
+print(rf_model1)
+```
+
+```{r}
+# Use the random forest model to make prediction and build a confusion matrix to
+## evaluate the prediction accuracy
+prediction_rf1 = predict(rf_model1, data = data_clean)
+confusionMatrix(prediction_rf1, data_clean$target)
+```
+
+```{r}
+# Plot the relationship between the number of trees and the prediction error. We
+## can see that the error reaches the lowest point when the number of trees is
+## around 750. Therefore, I will use this number to build a new model later to see
+## if it does a great job predicting
+plot(rf_model1)
+```
+
+```{r}
+# Use the 'tuneRF' function to figure out the 'mtry' parameter that leads to least
+## prediction error. 'mtry' is the number of variables randomly sampled as candidates
+## at each split of node. According to the plot, an 'mtry' of three leads to the
+## random forest model the predicts most accurately
+set.seed(123)
+tune_rf1 = tuneRF(data_clean[, -14], data_clean[, 14], stepFactor = 1.5, plot = TRUE, ntreeTry = 750, trace = TRUE, improve = 0.01)
+```
+
+```{r}
+# Build a new model using the parameters we just figured out. We can see that the
+## Out Of Bag (OBB) estimate of error rate decreases from 16.17% to 15.84%, meaning
+## that the functions did a great job identifying the best parameters
+set.seed(123)
+rf_model2 = randomForest(target ~ ., data = data_clean, ntree = 750, mtry = 3, importance = TRUE, proximity = TRUE)
+print(rf_model2)
+```
+
+```{r}
+# Build a confusion matrix for more detailed statistics about the model performance
+prediction_rf2 = predict(rf_model2, data = data_clean)
+confusionMatrix(prediction_rf2, data_clean$target)
+```
+
+```{r}
+# Plot the distribution of tree size to better understand the model
+hist(treesize(rf_model2), col = 'chartreuse1')
+```
+
+```{r}
+# Plot all the variables in the dataset and sort them based on their relative
+## importance when making the prediction. The first plot gives information about
+## how much prediction accuracy will decrease if we remove the variable. For example,
+## if we remove 'ca,' the prediction accuracy will decrease by 30%. The second plot
+## shows how pure the nodes are at the end of the tree, if the variable is removed.
+varImpPlot(rf_model2, main = 'Variable importance (high to low)')
+```
+
+```{r}
+# To know how many times each column is used in the entire random forest, we can
+## use the 'varUsed' function
+varUsed(rf_model2)
+```
+
+```{r}
+# To understand the marginal effect of a variable on the final prediction result, 
+## we can use the partial dependence plot. For example, this plot shows that, when 
+## age is greater than 53, the random forest is much less likely to predict
+## 1 as the target for that record.
+partialPlot(rf_model2, data_clean, age, '1')
+```
