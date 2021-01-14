@@ -3,7 +3,7 @@ Project code and knitted pdf
 
 This project is separated into several parts - Classification Methods, Statistical Testing
 
-## Classification Methods:
+### Classification Methods:
   The topics covered in this part include:
     Support Vector Machine (SVM)
     Classification Tree
@@ -14,4 +14,4 @@ This project is separated into several parts - Classification Methods, Statistic
       https://www.youtube.com/c/joshstarmer
       https://www.youtube.com/user/westlandindia
 
-## Statistical Testing
+### Statistical Testing
