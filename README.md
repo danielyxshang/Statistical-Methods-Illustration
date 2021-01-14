@@ -5,8 +5,8 @@ This project is separated into several parts - Classification Methods, Statistic
 
 ### Classification Methods:
   The topics covered in this part include:
-    Support Vector Machine (SVM)
-    Classification Tree
+    Support Vector Machine (SVM),
+    Classification Tree,
     Random Forest
 
   The resources I used while working on this part include:
