@@ -268,7 +268,7 @@ wilcox.test(data_clean$chol ~ data_clean$target, mu = 0, alternative = 'two.side
 wilcox.test(before_data$trestbps, after_data$trestbps, mu = 0, alternative = 'two.sided', paired = TRUE, conf.int = TRUE, conf.level = 0.95)
 ```
 
---------------------------------------------- Chi-Square Test--------------------------------------------------
+--------------------------------------------- Chi-Square Test -------------------------------------------------
 ```{r}
 # In this example, I will conduct a Chi-Square Test on two categorical variables,
 ## 'sex' and 'cp,' to see if the occurrence of one category is independent from 
