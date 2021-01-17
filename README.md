@@ -7,7 +7,8 @@ This project is separated into several parts - Classification Methods, Statistic
   The topics covered in this part include:
     Support Vector Machine (SVM),
     Classification Tree,
-    Random Forest
+    Random Forest,
+    K-Nearest Neighbor (KNN)
 
   The resources I used while working on this part include:
     A series of videos from:
