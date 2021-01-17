@@ -20,6 +20,7 @@ library(randomForest)
 library(caret)
 library(ggthemes)
 library(car)
+library(pROC)
 ```
 
 ```{r}
@@ -40,10 +41,18 @@ data_clean$thal = as.factor(data_clean$thal)
 data_clean$target = as.factor(data_clean$target)
 ```
 
+```{r}
+# Set up a train/test split for later model evaluation
+set.seed(111)
+index_train_test = sample(x = 2, size = nrow(data_clean), replace = TRUE, prob = c(0.8, 0.2))
+train_data = data_clean[index_train_test == 1, ]
+test_data = data_clean[index_train_test == 2, ]
+```
+
 ------------------------------------------- Support Vector Machine -------------------------------------------
 ```{r}
 # Build a support vector machine (SVM) to predict the 'target' and summarize the model
-svm_model = svm(target ~ ., data = data_clean, kernel = 'linear')
+svm_model = svm(target ~ ., data = train_data, kernel = 'linear')
 summary(svm_model)
 ```
 
@@ -52,8 +61,8 @@ summary(svm_model)
 ## in the dataset. Summarize the prediction accuracy and related statistics using
 ## a confusion matrix
 set.seed(123)
-prediction_svm1 = predict(svm_model, data_clean)
-confusionMatrix(prediction_svm1, data_clean$target)
+prediction_svm1 = predict(svm_model, newdata = test_data)
+confusionMatrix(prediction_svm1, test_data$target)
 ```
 
 ```{r}
@@ -61,7 +70,7 @@ confusionMatrix(prediction_svm1, data_clean$target)
 ## boost the model performance. The darker the color is, the better the model will
 ## perform, as indicated by the 'cost' y-axis label.
 set.seed(123)
-tune_svm = tune(svm, target ~ ., data = data_clean, range = list(epsilon = seq(0, 2, 0.1), cost = 2^(2:5)))
+tune_svm = tune(svm, target ~ ., data = train_data, range = list(epsilon = seq(0, 2, 0.1), cost = 2^(2:5)))
 plot(tune_svm)
 ```
 
@@ -81,8 +90,8 @@ summary(final_svm)
 # Use the tuned model to make prediction and compare the accuracy with the previous
 ## model. Since the prediction accuracy increased from 0.8779 to 0.9241, we can
 ## conclude that the 'tune' function did a great job identifying the best model
-prediction_svm2 = predict(final_svm, data_clean)
-confusionMatrix(prediction_svm2, data_clean$target)
+prediction_svm2 = predict(final_svm, newdata = test_data)
+confusionMatrix(prediction_svm2, test_data$target)
 ```
 
 --------------------------------------------- Classification Tree --------------------------------------------
@@ -90,7 +99,7 @@ confusionMatrix(prediction_svm2, data_clean$target)
 # Build a classification tree model to predict the target. I used a tree control
 ## parameter 'mincriterion.' The value of this parameter will be considered as 
 ## 1 - p-value that must be exceeded in order to implement a node split.
-tree_model1 = ctree(target~., data = data_clean, controls = ctree_control(mincriterion = 0.95))
+tree_model1 = ctree(target~., data = train_data, controls = ctree_control(mincriterion = 0.95))
 summary(tree_model1)
 tree_model1
 ```
@@ -103,13 +112,13 @@ plot(tree_model1, type = 'simple')
 ```{r}
 # Make prediction using the tree model and build a confusion matrix to evaluate
 ## its prediction accuracy
-prediction_tree1 = predict(tree_model1, data = data_clean)
-confusionMatrix(prediction_tree1, data_clean$target)
+prediction_tree1 = predict(tree_model1, newdata = test_data)
+confusionMatrix(prediction_tree1, test_data$target)
 ```
 
 ```{r}
 # Build another tree model using a different package
-tree_model2 = rpart(target ~ ., data = data_clean)
+tree_model2 = rpart(target ~ ., data = train_data)
 ```
 
 ```{r}
@@ -120,8 +129,8 @@ rpart.plot(tree_model2, extra = 1)
 ```{r}
 # Make prediction using the second tree model and build a confusion matrix to evaluate
 ## the prediction accuracy
-prediction_tree2 = predict(tree_model2, data_clean, type = 'class')
-confusionMatrix(prediction_tree2, data_clean$target)
+prediction_tree2 = predict(tree_model2, newdata = test_data, type = 'class')
+confusionMatrix(prediction_tree2, test_data$target)
 ```
 
 ----------------------------------------------- Random Forest ----------------------------------------------
@@ -130,15 +139,15 @@ confusionMatrix(prediction_tree2, data_clean$target)
 ## started with a huge number of trees (ntree) so that, based on the plot later,
 ## we can easily identify the number of trees that leads to least prediction error
 set.seed(123)
-rf_model1 = randomForest(target ~ ., data = data_clean, ntree = 2000)
+rf_model1 = randomForest(target ~ ., data = train_data, ntree = 2000)
 print(rf_model1)
 ```
 
 ```{r}
 # Use the random forest model to make prediction and build a confusion matrix to
 ## evaluate the prediction accuracy
-prediction_rf1 = predict(rf_model1, data = data_clean)
-confusionMatrix(prediction_rf1, data_clean$target)
+prediction_rf1 = predict(rf_model1, newdata = test_data)
+confusionMatrix(prediction_rf1, test_data$target)
 ```
 
 ```{r}
@@ -155,7 +164,7 @@ plot(rf_model1)
 ## at each split of node. According to the plot, an 'mtry' of three leads to the
 ## random forest model the predicts most accurately
 set.seed(123)
-tune_rf1 = tuneRF(data_clean[, -14], data_clean[, 14], stepFactor = 1.5, plot = TRUE, ntreeTry = 750, trace = TRUE, improve = 0.01)
+tune_rf1 = tuneRF(train_data[, -14], train_data[, 14], stepFactor = 1.5, plot = TRUE, ntreeTry = 750, trace = TRUE, improve = 0.01)
 ```
 
 ```{r}
@@ -163,14 +172,14 @@ tune_rf1 = tuneRF(data_clean[, -14], data_clean[, 14], stepFactor = 1.5, plot = 
 ## Out Of Bag (OBB) estimate of error rate decreases from 16.17% to 15.84%, meaning
 ## that the functions did a great job identifying the best parameters
 set.seed(123)
-rf_model2 = randomForest(target ~ ., data = data_clean, ntree = 750, mtry = 3, importance = TRUE, proximity = TRUE)
+rf_model2 = randomForest(target ~ ., data = train_data, ntree = 750, mtry = 3, importance = TRUE, proximity = TRUE)
 print(rf_model2)
 ```
 
 ```{r}
 # Build a confusion matrix for more detailed statistics about the model performance
-prediction_rf2 = predict(rf_model2, data = data_clean)
-confusionMatrix(prediction_rf2, data_clean$target)
+prediction_rf2 = predict(rf_model2, newdata = test_data)
+confusionMatrix(prediction_rf2, test_data$target)
 ```
 
 ```{r}
@@ -198,5 +207,95 @@ varUsed(rf_model2)
 ## we can use the partial dependence plot. For example, this plot shows that, when 
 ## age is greater than 53, the random forest is much less likely to predict
 ## 1 as the target for that record.
-partialPlot(rf_model2, data_clean, age, '1')
+partialPlot(x = rf_model2, pred.data = test_data, x.var = age, which.class = '1',
+            ylab = 'Marginal importance of age')
 ```
+
+------------------------------------------ K-Nearest Neighbor (KNN) ------------------------------------------
+```{r}
+# Build a KNN model to predict the 'target'. I started by defining the training
+## controls. Here, I will evaluate the KNN model using repeated 10-fold cross
+## validation repeated for three times.
+trCrl1 = trainControl(method = 'repeatedcv', number = 10, repeats = 5)
+```
+
+```{r}
+# Then, we train the model using the KNN method. Since different fields in the data
+## may have different unit, we pre-processed the data by first minus the mean value
+## from each single value. Then, we divide the result by the standard deviation.
+## This standardization should result in data that falls within a scope from -3 to 3.
+## Only numeric values, not factors, are standardized. The tuneLength means the
+## number of K we want to test. To figure out the best number of K, we set it to
+## a fairly large number.
+set.seed(123)
+knn1 = train(data = train_data, target ~ ., method = 'knn', tuneLength = 100,
+             trControl = trCrl1, preProcess = c('center', 'scale'))
+```
+
+```{r}
+# Here, we summarize the model. The result shows that, when k equals 57, the model
+## has the highest prediction accuracy. Therefore, if we were to judge the model
+## by its prediction accuracy, we get the best model when k equals to 57.
+knn1
+```
+
+```{r}
+# We plot the relationship between k and the model's prediction accuracy. We can
+## see that, when k equals to 57, the model performs the best.
+plot(knn1)
+```
+
+```{r}
+# To better understand the model in terms of which field plays the most important role,
+## we use the varImp function to sort the importance of different fields in a
+## descending order.
+varImp(knn1)
+```
+
+```{r}
+# We predict the target using the model and build a confusion matrix. The result
+## shows a prediction accuracy of 84.62%.
+confusionMatrix(predict(knn1, newdata = test_data), test_data$target)
+```
+
+```{r}
+# Other than accuracy, ROC is another common way to evaluate the predictive performance
+## of models. I will use ROC to evaluate our KNN model to see if a different K is
+## chosen.
+
+set.seed(123)
+train_data1 = train_data
+test_data1 = test_data
+train_data1$target = as.integer(train_data1$target)
+test_data1$target = as.integer(test_data1$target)
+train_data1$target[train_data1$target == 1] = 'No'
+train_data1$target[train_data1$target == 2] = 'Yes'
+test_data1$target[test_data1$target == 1] = 'No'
+test_data1$target[test_data1$target == 2] = 'Yes'
+
+trCrl2 = trainControl(method = 'repeatedcv', number = 10, repeats = 5,
+                      classProbs = TRUE, summaryFunction = twoClassSummary)
+
+knn2 = train(target ~ ., data = train_data1, method = 'knn', tuneLength = 80,
+             trControl = trCrl2, preProcess = c('center', 'scale'), metric = 'ROC')
+```
+
+
+```{r}
+# The larger the area under the ROC curve, the better the model performs. Therefore,
+## we can see that when K is 97, the model performs the best.
+knn2
+```
+
+```{r}
+# The plot also shows that a K equals to 97 results in the greatest area under ROC.
+plot(knn2)
+```
+
+```{r}
+# The confusion matrix shows that the prediction accuracy is 80%. In this case, ROC
+## does a worse job figuring out the model with the strongest predictive power than
+## the accuracy.
+confusionMatrix(predict(knn2, newdata = test_data1), as.factor(test_data1$target))
+```
+
