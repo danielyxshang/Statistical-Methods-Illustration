@@ -1,0 +1,295 @@
+---
+title: "Statistical Method Illustration - PCA"
+author: "Daniel Shang"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load the packages necessary for the project
+library(dplyr)
+library(psych)
+library(fansi)
+library(devtools)
+library(caret)
+```
+
+```{r}
+# Import the data and show a few grow to get a quick glance at the data
+data = read.csv('heart.csv')
+head(data)
+```
+
+```{r}
+# Clean the data as necessary. Since PCA only works with numerical variables, we
+## remove all the categorical/dummy variables. Doing this would lose us information,
+## making the model's performance not as good as others that consider all the variabels.
+## However, this example is for illustration purpose. Thus, I will go with a dataset
+## that does not include all the data.
+colnames(data)[1] = 'age'
+data_clean = na.omit(mutate_all(data, ~ifelse(. %in% c('N/A', 'null', 'Null', 'NULL',
+                                                       '', NULL), NA, .)))
+to_drop = c('sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal')
+data_clean = data_clean[, !(colnames(data_clean) %in% to_drop)]
+data_clean$target = as.factor(data_clean$target)
+head(data_clean)
+```
+
+```{r}
+# Split the dataset into train and test for further model performance evaluation
+set.seed(123)
+index_1 = sample(2, nrow(data_clean), replace = TRUE, prob = c(0.8, 0.2))
+train = data_clean[index_1 == 1, ]
+test = data_clean[index_1 == 2, ]
+```
+
+```{r}
+# Build a correlation matrix to show the relationship between each pair of the
+## variables, except for target (the dependent variable). Sometimes, two independent
+## variables are highly correlated. When that is the case, the colinearity problem
+## could happen. PCA does a good job handling that. Not only that, PCA prioritize
+## the most important variables when there are hundreds of independent variable.
+
+## This correlation matrix shows that no two variables are highly correlated to
+## each other, indicating a remote possibility of colinearity problem.
+pairs.panels(x = train[, -6], gap = 0, bg = c('red', 'green')[train$target],
+             pch = 21, stars = TRUE, ci = TRUE, alpha = 0.1,
+             main = 'Correlation between variables')
+```
+
+```{r}
+# Build a PCA model, calculate the average and standard deviation of each variables,
+## and show them.
+pca1 = prcomp(train[, -6], center = TRUE, scale. = TRUE)
+pca1$center
+pca1$scale
+```
+
+```{r}
+# Print the PCA model to see the detail. The value in the matrix below is called
+## loading score. Loading score is the coordinates for the unit vector. Practically,
+## since age has the greatest loading score in this case, it is responsible for the
+## most variation along PC1.
+print(pca1)
+```
+
+```{r}
+# Summarize the principle component model. The number shows that PC1 explains
+## 36.72% of the variability. Also, PC2 explains 20.47% of the variability. Since
+## each principle component has a fairly large of proportion, each of them
+## contributes to the variability.
+summary(pca1)
+```
+
+```{r}
+# Then, we plot the principle component in a correlation matrix. Since each PC is
+## orthogonal to the next PC, they are not correlated at all. This is how PC model
+## helps handle multi-colinearity problem.
+pairs.panels(pca1$x, gap = 0, bg = c('red', 'green')[train$target], stars = TRUE,
+              main = 'Correlation between PCs', pch = 21, ci = TRUE, alpha = 0.1)
+```
+
+```{r}
+# This chunk is to define the 'ggbiplot' function. The function and resources can be
+#found at https://github.com/vqv/ggbiplot | Copyright 2011 Vincent Q. Vu.
+
+ggbiplot <- function(pcobj, choices = 1:2, scale = 1, pc.biplot = TRUE, 
+                      obs.scale = 1 - scale, var.scale = scale, 
+                      groups = NULL, ellipse = FALSE, ellipse.prob = 0.68, 
+                      labels = NULL, labels.size = 3, alpha = 1, 
+                      var.axes = TRUE, 
+                      circle = FALSE, circle.prob = 0.69, 
+                      varname.size = 3, varname.adjust = 1.5, 
+                      varname.abbrev = FALSE, ...)
+{
+  library(ggplot2)
+  library(plyr)
+  library(scales)
+  library(grid)
+
+  stopifnot(length(choices) == 2)
+
+ if(inherits(pcobj, 'prcomp')){
+    nobs.factor <- sqrt(nrow(pcobj$x) - 1)
+    d <- pcobj$sdev
+    u <- sweep(pcobj$x, 2, 1 / (d * nobs.factor), FUN = '*')
+    v <- pcobj$rotation
+  } else if(inherits(pcobj, 'princomp')) {
+    nobs.factor <- sqrt(pcobj$n.obs)
+    d <- pcobj$sdev
+    u <- sweep(pcobj$scores, 2, 1 / (d * nobs.factor), FUN = '*')
+    v <- pcobj$loadings
+  } else if(inherits(pcobj, 'PCA')) {
+    nobs.factor <- sqrt(nrow(pcobj$call$X))
+    d <- unlist(sqrt(pcobj$eig)[1])
+    u <- sweep(pcobj$ind$coord, 2, 1 / (d * nobs.factor), FUN = '*')
+    v <- sweep(pcobj$var$coord,2,sqrt(pcobj$eig[1:ncol(pcobj$var$coord),1]),FUN="/")
+  } else if(inherits(pcobj, "lda")) {
+      nobs.factor <- sqrt(pcobj$N)
+      d <- pcobj$svd
+      u <- predict(pcobj)$x/nobs.factor
+      v <- pcobj$scaling
+      d.total <- sum(d^2)
+  } else {
+    stop('Expected a object of class prcomp, princomp, PCA, or lda')
+  }
+
+  choices <- pmin(choices, ncol(u))
+  df.u <- as.data.frame(sweep(u[,choices], 2, d[choices]^obs.scale, FUN='*'))
+
+  v <- sweep(v, 2, d^var.scale, FUN='*')
+  df.v <- as.data.frame(v[, choices])
+
+  names(df.u) <- c('xvar', 'yvar')
+  names(df.v) <- names(df.u)
+
+  if(pc.biplot) {
+    df.u <- df.u * nobs.factor
+  }
+
+  r <- sqrt(qchisq(circle.prob, df = 2)) * prod(colMeans(df.u^2))^(1/4)
+
+  v.scale <- rowSums(v^2)
+  df.v <- r * df.v / sqrt(max(v.scale))
+
+  if(obs.scale == 0) {
+    u.axis.labs <- paste('standardized PC', choices, sep='')
+  } else {
+    u.axis.labs <- paste('PC', choices, sep='')
+  }
+
+  u.axis.labs <- paste(u.axis.labs, 
+                       sprintf('(%0.1f%% explained var.)', 
+                               100 * pcobj$sdev[choices]^2/sum(pcobj$sdev^2)))
+
+  if(!is.null(labels)) {
+    df.u$labels <- labels
+  }
+
+  if(!is.null(groups)) {
+    df.u$groups <- groups
+  }
+
+  if(varname.abbrev) {
+    df.v$varname <- abbreviate(rownames(v))
+  } else {
+    df.v$varname <- rownames(v)
+  }
+
+  df.v$angle <- with(df.v, (180/pi) * atan(yvar / xvar))
+  df.v$hjust = with(df.v, (1 - varname.adjust * sign(xvar)) / 2)
+
+  g <- ggplot(data = df.u, aes(x = xvar, y = yvar)) + 
+          xlab(u.axis.labs[1]) + ylab(u.axis.labs[2]) + coord_equal()
+
+  if(var.axes) {
+
+    if(circle) 
+    {
+      theta <- c(seq(-pi, pi, length = 50), seq(pi, -pi, length = 50))
+      circle <- data.frame(xvar = r * cos(theta), yvar = r * sin(theta))
+      g <- g + geom_path(data = circle, color = muted('white'), 
+                         size = 1/2, alpha = 1/3)
+    }
+
+    g <- g +
+      geom_segment(data = df.v,
+                   aes(x = 0, y = 0, xend = xvar, yend = yvar),
+                   arrow = arrow(length = unit(1/2, 'picas')), 
+                   color = muted('red'))
+  }
+
+  if(!is.null(df.u$labels)) {
+    if(!is.null(df.u$groups)) {
+      g <- g + geom_text(aes(label = labels, color = groups), 
+                         size = labels.size)
+    } else {
+      g <- g + geom_text(aes(label = labels), size = labels.size)      
+    }
+  } else {
+    if(!is.null(df.u$groups)) {
+      g <- g + geom_point(aes(color = groups), alpha = alpha)
+    } else {
+      g <- g + geom_point(alpha = alpha)      
+    }
+  }
+
+  if(!is.null(df.u$groups) && ellipse) {
+    theta <- c(seq(-pi, pi, length = 50), seq(pi, -pi, length = 50))
+    circle <- cbind(cos(theta), sin(theta))
+
+    ell <- ddply(df.u, 'groups', function(x) {
+      if(nrow(x) <= 2) {
+        return(NULL)
+      }
+      sigma <- var(cbind(x$xvar, x$yvar))
+      mu <- c(mean(x$xvar), mean(x$yvar))
+      ed <- sqrt(qchisq(ellipse.prob, df = 2))
+      data.frame(sweep(circle %*% chol(sigma) * ed, 2, mu, FUN = '+'), 
+                 groups = x$groups[1])
+    })
+    names(ell)[1:2] <- c('xvar', 'yvar')
+    g <- g + geom_path(data = ell, aes(color = groups, group = groups))
+  }
+
+  if(var.axes) {
+    g <- g + 
+    geom_text(data = df.v, 
+              aes(label = varname, x = xvar, y = yvar, 
+                  angle = angle, hjust = hjust), 
+              color = 'darkred', size = varname.size)
+  }
+  return(g)
+}
+```
+
+```{r}
+# Here, we plot the PCA model using the 'ggbiplot' package that is available from
+## GitHub. The five arrows in the plow indicate both the sign and the magnitude of
+## the loading score in the previous model detail.
+ggbiplot(pca1, obs.scale = 1, groups = train$target, ellipse = TRUE,
+         ellipse.prob = 0.9) +
+  labs(title = 'PCA Plot') + 
+  theme(legend.direction = 'horizontal', plot.title = element_text(hjust = 0.5),
+        legend.position = 'bottom')
+```
+
+```{r}
+# We predict the loading scores using the train and test sets.
+train_1 = predict(pca1, train)
+train_1 = data.frame(train_1, train[6])
+test_1 = predict(pca1, test)
+test_1 = data.frame(test_1, test[6])
+```
+
+```{r}
+# Here, we fit a logistic regression model using loading scores as variables.
+logistic_1 = glm(target~., data = train_1, family = 'binomial')
+summary(logistic_1)
+```
+
+```{r}
+# Here, we set the threshold of categorizing the target as 0.5 and make the prediction
+## using the logistic regression model. Unsurprisingly, the predictive power is
+## low. This is mainly because, for the illustration purpose, I removed those
+## categorical variables. Those fields could contained critical information to
+## make the prediction. But once again, the purpose of this project is to illustrate
+## the code to build a PCA model, not to make a prediction as accurate as possible.
+
+pred = predict(logistic_1, newdata = test_1)
+
+pred_response = c()
+for (i in 1:length(pred)) {
+  if (pred[i] > 0.5) {
+    pred_response = c(pred_response, 1)
+  } else {
+    pred_response = c(pred_response, 0)
+  }
+}
+
+pred_response = as.factor(pred_response)
+confusionMatrix(pred_response, test_1$target)
+```
