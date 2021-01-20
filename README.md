@@ -1,7 +1,7 @@
 # Statistical-Methods-Illustration
 Project code and knitted pdf
 
-This project is separated into several parts - Classification Methods, Statistical Testing, PCA
+This project is separated into several parts - Classification Methods, Statistical Testing, PCA, Clustering
 
 ### Classification Methods:
   The topics covered in this part include:
@@ -56,3 +56,12 @@ This project is separated into several parts - Classification Methods, Statistic
    Code from:
    
     https://github.com/vqv/ggbiplot
+
+### Clustering
+  K-Means Clustering and Hierarchical Clustering are covered in this part
+  
+   The resources I used while working on this part include:
+    
+   A series of videos from:
+   
+   
