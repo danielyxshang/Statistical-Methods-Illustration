@@ -1,0 +1,174 @@
+---
+title: "Clustering"
+author: "Daniel Shang"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load the packages necessary for the project
+library(psych)
+library(ggfortify)
+library(factoextra)
+```
+
+```{r}
+# In this case, we will use the 'iris' data set for illustration. A quick summary
+## and the structure of the data set is shown.
+data = iris
+summary(data)
+str(data)
+```
+
+-------------------------------------------------- K-Means Clustering ---------------------------------------------------
+```{r}
+# We set a random seed and build a K-Means model. Since the target variable (Species)
+## of the iris data set has three categories, we will use three as the value K
+## for now. We will come back to check if it is a good choice.
+set.seed(123)
+kmeans1 = kmeans(iris[, -5], 3)
+kmeans1 
+```
+
+```{r}
+# Here, we build a table showing the three species categories and the three clusters
+## determined by K-Means model. According to the table, we can see that the model
+## correctly clustered 'setosa' and did a fairly good job clustering 'versicolor.'
+## However, the model seems to be not sure about which cluster 'virginica' should
+## be put in.
+table(iris$Species, kmeans1$cluster)
+```
+
+```{r}
+# Here, we visualize the data and color each point based on the cluster it is
+## assigned to. We can see that for those pairs of variables that are not highly
+## correlated, some points mingle and drawing a clear line is difficult. To
+## interpret this plot, we can see that, whenever 'Sepal.Width' comes in, it is
+## very close to another cluster.For example, in the graph at the second column
+## and third row, the red and blue clusters are very close to each other in terms
+## of the distance on the y-axis. Since 'Sepal.Width' is on the y-axis, we know that
+## this variable probably contributes to the bad clustering. This is also shown in
+## the model result from previous chunk, in which we see that the cluster means of
+## the three cluster for 'Sepal.Width' are close to each other.
+pairs.panels(x = iris[, -5], gap = 0, bg = c('yellow', 'blue', 'red')[kmeans1$cluster],
+             pch = 21, stars = TRUE, ci = TRUE, alpha = 0.1)
+```
+
+```{r}
+# If we plot the three clusters on a graph, we see that the green and blue clusters
+## are very close to each other, and they could potentially be clustered in the same
+## cluster.
+autoplot(kmeans1, iris[, -5], frame = TRUE)
+```
+
+```{r}
+# As we can see, the center of 'Sepal.Width' is very close to each other.
+kmeans1$centers
+```
+
+```{r}
+# To figure out if other K could have been the better choice, we use the WSS Plot,
+## also known as an elbow plot.
+## This source of this function can be found at: https://www.r-statistics.com/2013/08/k-means-clustering-from-r-in-action/
+
+wssplot <- function(data, nc=15, seed=123){
+               wss <- (nrow(data)-1)*sum(apply(data,2,var))
+               for (i in 2:nc){
+                    set.seed(seed)
+                    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
+                plot(1:nc, wss, type="b", xlab="Number of Clusters",
+                     ylab="Within groups sum of squares", main = 'WSS Plot')}
+```
+
+```{r}
+# The plot shows the variance of each value of K. After K equals 2, the slope of
+## line is not as high as before. This means that a K equals 2 could be a better
+## choice. However, this judgment is subjective, as the slope when K equals 3 is
+## also distinguishable from the slopes when K is greater than 3. We will use K
+## equals 2 and see how the model performs.
+wssplot(iris[, -5])
+```
+
+```{r}
+# We repeat the same process as before except that we use an K equals 2 this time.
+set.seed(123)
+kmeans2 = kmeans(iris[, -5], 2)
+kmeans2
+```
+
+```{r}
+# Putting the clustering result in a table, we do see that each cluster is 'purer.'
+## The model put 'versicolor' and 'virginica' in the same cluster.
+table(iris$Species, kmeans2$cluster)
+```
+
+```{r}
+pairs.panels(x = iris[, -5], gap = 0, bg = c('yellow', 'blue')[kmeans2$cluster],
+             pch = 21, stars = TRUE, ci = TRUE, alpha = 0.1)
+```
+
+```{r}
+autoplot(kmeans2, iris[, -5], frame = TRUE)
+```
+
+```{r}
+# As shown by all the plots and statistics, this way of clustering is also acceptable.
+## When putting the K-Means Clustering into practice, we should use domain knowledge
+## to make this kind of choice. Does clustering 'versicolor' and 'virginica' make
+## sense? Are they biologically similar to each other? Knowing these can help
+## analysts to make the proper decision of choosing K.
+kmeans2$centers
+```
+
+----------------------------------------------- Hierarchical Clustering ------------------------------------------------
+```{r}
+# Set a random seed and randomly select 40 samples as the data set to be used in
+## this example
+set.seed(123)
+index_1 = sample(150, nrow(iris), replace = FALSE)
+iris_sample = iris[index_1[1:40], ]
+```
+
+```{r}
+# Hierarchical clustering model clusters data based on the euclidian distance between
+## points. Thus, we first compute the distance between points and feed the model
+## with the distance calculated. Then, we make a plot to show how the model cluster
+## the data. We also add the species name onto the plot to take a glance at the
+## model's performance.
+distance = dist(iris_sample[, -5])
+hc1 = hclust(distance)
+plot(hc1, labels = iris_sample$Species, hang = -1)
+```
+
+```{r}
+# Unlike the situation with K-Means, determining K for hierarchical clustering
+## relies more on domain knowledge. Since there are three species in the data set,
+## we will go with a K equals to three here. We reflect the size of K on the graph.
+fviz_dend(x = hc1, k = 3, k_colors = c('red', 'green3', 'blue'),
+          rect = TRUE, rect_border = 'gray')
+```
+
+```{r}
+# Here, we cut the model into three pieces because we choose three as our size of K.
+## Then, we can look at the detail of each attribute within each cluster. For example,
+## the first and second row indicate that, in the first cluster, the average
+## 'Petal.Length' is 1.366667. With this data, we get a better understanding about
+## how different attribute looks like within a cluster.
+clusterGroups = cutree(hc1, k = 3)
+tapply(iris_sample$Petal.Length, clusterGroups, mean)
+tapply(iris_sample$Petal.Width, clusterGroups, mean)
+tapply(iris_sample$Sepal.Length, clusterGroups, mean)
+tapply(iris_sample$Sepal.Width, clusterGroups, mean)
+```
+
+```{r}
+# Here, we check out what is cluster by the model as cluster number three. We can
+## see that this cluster is solely consisted of 'versicolor' species. In application,
+## the clustering analysis can be used to, for example, segment customers based on
+## their characteristics, so that we have a better idea about how to design different
+## marketing campaign to target different segment of customers.
+subset(iris_sample, clusterGroups == 3)
+```
