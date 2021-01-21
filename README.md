@@ -8,14 +8,21 @@ This project is separated into several parts - Classification Methods, Statistic
     Support Vector Machine (SVM),
     Classification Tree,
     Random Forest,
-    K-Nearest Neighbor (KNN)
+    K-Nearest Neighbor (KNN),
+    Naive Bayes
 
   The resources I used while working on this part include:
     A series of videos from:
-      
+
       https://www.youtube.com/c/joshstarmer
 
       https://www.youtube.com/user/westlandindia
+
+    Data from:
+
+      https://www.kaggle.com/eswarchandt/admission
+
+      https://www.kaggle.com/ronitf/heart-disease-uci
 
 ### Statistical Testing
   The topics covered in this part include:
