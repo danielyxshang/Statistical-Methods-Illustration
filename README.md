@@ -88,3 +88,20 @@ This project is separated into several parts - Classification Methods, Statistic
    Code From:
 
     https://www.r-statistics.com/2013/08/k-means-clustering-from-r-in-action/
+
+### Generalized Additive Model
+  A simple example of Generalized Additive Model (GAM) is covered in this part
+
+    The resources I used while working on this part include:
+
+    A video:
+
+      https://www.youtube.com/watch?v=sgw4cu8hrZM&t=4126s&ab_channel=GavinSimpson
+
+    Resources from:
+
+      bit.ly/gam-webinar-zip
+
+    Data source:
+
+      https://bit.ly/hadcruvt4
