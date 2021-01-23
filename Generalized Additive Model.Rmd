@@ -1,0 +1,71 @@
+---
+title: "Generalized Additive Model"
+author: "Daniel Shang"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load the packages needed
+library(readr)
+library(dplyr)
+library(mgcv)
+library(ggplot2)
+library(ggthemes)
+```
+
+```{r}
+# The data used in this illustration is from a URL defined below. The data is about
+## temperature measured each year
+url = 'https://bit.ly/hadcrutv4'
+data = read_delim(url, delim = ' ', col_types = 'nnnnnnnnnnnn', col_names = FALSE) %>%
+  select(num_range('X', c(1, 5))) %>% setNames(nm = c('Year', 'Temperature'))
+```
+
+```{r}
+# Plot the data to get a basic understanding. As the plot shows, the relationship
+## between year and temperature is not linear. Thus, we cannot use a linear model.
+## Generally, polynomial functions can fit the nonlinear pattern. Therefore, we use
+## Generalized Additive Model (GAM) here. The logic behind GAM is that the model
+## takes several pieces of smaller functions together and smooth them to form a
+## polynomial function, which fit the model.
+ggplot(data, aes(x = Year, y = Temperature)) + 
+  geom_point() +
+  theme_hc()
+```
+
+```{r}
+# Fit a GAM model and summarize the model.
+gam_1 = gam(Temperature ~ s(Year), data = data, method = 'REML')
+summary(gam_1)
+```
+
+```{r}
+# Make a simple plot of the model to check its pattern
+plot(gam_1)
+```
+
+```{r}
+# To see how well the model fits the data, we make prediction using the current
+## model and current data. We also plot a confidence interval with three standard
+## error away as its upper bound and lower bound. We also plot the original data.
+## As the plot shows, the model fit the original data well.
+new_year = as_tibble(with(data, data.frame(Year = seq(min(Year), max(Year), length = nrow(data)))))
+pred_1 = as_tibble(data.frame(predict(gam_1, newdata = new_year, se.fit = TRUE,
+                                        unconditional = TRUE)))
+pred_1 = cbind(new_year, pred_1) %>%
+    mutate(upr = fit + 3 * se.fit, lwr = fit - 3 * se.fit)
+
+ggplot(data, aes(x = Year, y = Temperature)) +
+  geom_point() +
+  geom_ribbon(data = pred_1, mapping = aes(ymin = lwr, ymax = upr, x = Year),
+              alpha = 0.4, inherit.aes = FALSE, fill = "yellow3") +
+  geom_line(data = pred_1, mapping = aes(y = fit, x = Year), inherit.aes = FALSE,
+            size = 1, colour = "blue3") +
+  labs(x = 'Year', y = 'Temperature', title = 'GAM Model Fit') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_hc()
+```
