@@ -105,3 +105,16 @@ This project is separated into several parts - Classification Methods, Statistic
     Data source:
 
       https://bit.ly/hadcruvt4
+
+### A/B Testing
+  An example of A/B Testing is covered in this parts
+
+    The resources I used while working on this part include:
+
+    A video:
+
+      https://www.youtube.com/watch?v=QXpYtM-Zlxg&ab_channel=R-LadiesPhilly
+
+    Data source:
+
+      https://raw.githubusercontent.com/eleafeit/ab_test/master/code/test_data.csv
