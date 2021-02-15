@@ -1,0 +1,222 @@
+---
+title: "A/B Testing"
+author: "Daniel Shang"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load the necessary packages
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+```
+
+```{r}
+# Import the data and show the first 10 lines
+data = read.csv('test_data.csv')
+head(data, 10)
+```
+
+```{r}
+# Summarize the data. The 'user_id' uniquely identifies each row, and each row is
+## a customer in the CRM database. The 'cpgn_id' is the same of each row, as the
+## whole data set represents a single campaign. The 'group' variable tells if the
+## customer is in the control group (receive no email), email group A (receive email
+## version A), or email group B (receive email version B). The 'email' means if the
+## customer receives the email or not. The 'open' means if the pictures in the email
+## are downloaded. 'Click' indicates if the customer click through the link in the
+## email. 'Purchase' indicates the amount of purchase the customer made. 'Chard,'
+## 'sav_blanc,' 'syrah,' and 'cab' are product categories names. They indicate the
+## amount of purchase customers made before under each product category. 'Past_purch'
+## is the total amount of past purchases. 'Days_since' indicates the
+## number of days past since the last purchase, and 'visits' indicates the number
+## of time the customers visited the website.
+summary(data)
+```
+
+```{r}
+# Shows the structure of the data set
+str(data)
+```
+
+```{r}
+# These are the three treatment groups. The number of occurrence of each group
+## is, and should be, roughly the same.
+table(data$group)
+```
+
+```{r}
+# Check the means of different variables within each group. One critical piece
+## of A/B Testing a valid randomization. Given a large enough sample size, we would
+## expect the data within each baseline variables to be similar. Here, we can see that
+## the three variables have roughly the same average. Thus, the randomization used
+## when assigning groups is valid.
+data %>% group_by(group) %>% summarize(mean(days_since), mean(visits), mean(past_purch))
+```
+
+```{r}
+# Similarly, the portion of customers who have purchase history within each group
+## is roughly the same.
+data %>% group_by(group) %>% summarize(mean(past_purch > 0))
+```
+
+```{r}
+# We can also visualize the distribution of 'past_purch' of each group to verify
+## if the randomization is valid. Since they have a very similar distribution,
+## the randomization was properly conducted.
+data %>% filter(past_purch > 0) %>%
+  ggplot(aes(x = past_purch, fill = group)) +
+  geom_histogram(binwidth = 30, alpha = 0.3, position = 'identity') +
+  xlim(0, 2500) +
+  labs(title = 'Distribution of past purchase for each group') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_hc()
+```
+
+```{r}
+# Check the distribution of 'days_since' for each group
+data %>%
+  ggplot(aes(x = days_since, fill = group)) +
+  geom_histogram(binwidth = 20, alpha = 0.3, position = 'identity') +
+  xlim(0, 800) +
+  labs(title = 'Distribution of days_since for each group') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_hc()
+```
+
+```{r}
+# Check the distribution of 'visits' for each group. One thing to note is that
+## it is improper to check the distribution of response variables. In this case,
+## the three response variables are 'open,' 'click,' and 'purch.' Since we expect
+## our campaign to work, the response variable of each group should be different.
+## Otherwise, the campaign is not working.
+data %>% filter(visits > 0) %>%
+  ggplot(aes(x = visits, fill = group)) +
+  geom_histogram(binwidth = 1, alpha = 0.3, position = 'identity') +
+  xlim(0, 30) +
+  labs(title = 'Distribution of number of visits for each group') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_hc()
+```
+
+```{r}
+# Next, I would like to compare the effect of different emails in terms of customers'
+## response and purchasing behavior. We can see that, on average, the possibility
+## that customers who received email A downloaded the pictures in the email is 71.8%,
+## while the possibility for customers who received email B is 65.2%. Additionally,
+## the click through rates for customers who received email A and B are 13.2% and
+## 9.3%, respectively. However, it seems that the higher opening and click through
+## rates of email A does not convert to more purchase.
+data %>% group_by(group) %>% summarize(mean(open), mean(click), mean(purch))
+```
+
+```{r}
+# Since we are more interested in the effect difference between email A and email
+## B, we remove 'ctrl' from the group. Then, we switch the position of values of
+## 'open' field for easier comparison.
+
+# Although we know from the previous table that customers who received email A are
+## more likely to open the email, we want to know whether that difference is statistically
+## significant. To do that, we use the prop.test function. The null hypothesis of
+## this test is that the proportions in the two groups are the same.
+data_noctrl = data[data[, 'group'] != 'ctrl', ]
+table(data_noctrl$group, data_noctrl$open)[, 2:1]
+```
+
+```{r}
+# A two-sided test returns a p-value of 2.2 * 10 ^ -16, a value much less than 0.05.
+## Therefore, we have strong evidence to reject the null hypothesis and conclude
+## that the proportions of the two groups are different. In addition, we get a
+## 95% confidence interval of the percentage difference, meaning that we are 95%
+## confident that the difference between the two proportions will fall into that
+## interval. Thus, we know that email A convert to a higher open rate than email B.
+prop.test(table(data_noctrl$group, data_noctrl$open)[, 2:1], alternative = 'two.sided')
+```
+
+```{r}
+# Visualize the two groups to show the difference between their open rates
+data %>% filter(group != 'ctrl') %>%
+  ggplot(aes(x = group, fill = factor(open))) +
+  geom_bar(width = 0.5, alpha = 0.7, position = 'fill', color = 'white') +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = 'Open percentage of email A/B') +
+  theme(plot.title = element_text(hjust = 0.7)) +
+  theme_hc()
+```
+
+```{r}
+# Similarly, we build a table and run a test to show if email A does a better job
+## at boosting click rate than email B, and whether the difference is statistically
+## different
+table(data_noctrl$group, data_noctrl$click)[, 2:1]
+```
+
+```{r}
+# The test result returns a p-value small enough that we can reject the null
+## hypothesis and conclude that the click rate of email A and email B is different.
+## Specifically, we are 95% confident that the difference between the click rate
+## falls in the range from 0.034 to 0.043.
+prop.test(table(data_noctrl$group, data_noctrl$click)[, 2:1], alternative = 'two.sided')
+```
+
+```{r}
+# Visualize the data for better understanding
+data %>% filter(group != 'ctrl') %>%
+  ggplot(aes(x = group, fill = factor(click))) +
+  geom_bar(width = 0.5, alpha = 0.7, position = 'fill', color = 'white') +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = 'Open percentage of email A/B') +
+  theme(plot.title = element_text(hjust = 0.7)) +
+  theme_hc()
+```
+
+```{r}
+# Next, we look at the purchase made by customers after they received either email
+## A or email B. Since the purchase amount shows some outliers, we use the log
+## transformation to condense the plot. The box plots of both groups are similar
+## to each other.
+data_noctrl %>%
+  ggplot(aes(x = group, y = log(purch), fill = group)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(title = 'Distribution of purchase on log scale in each group') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_hc()
+```
+
+```{r}
+# To verify that the purchase amounts are similar between the two groups, we run a
+## two sample t-test. Since the p-value is large and the 95% confidence interval
+## includes 0, we do not have enough evidence to reject the null hypothesis and
+## hence conclude that the mean purchases of the two groups are not significantly
+## different.
+t.test(purch ~ group, data = data_noctrl)
+```
+
+```{r}
+# Knowing the difference between the two email versions, I would like to know more
+## about the email and no email group. To do that, I visualized the data and found
+## that those customers who were sent an email were constantly making more purchases
+## than those who did not receive email at all. Therefore, I would recommend the
+## company to design a marketing campaign that sends email to promote sales.
+data %>%
+  ggplot(aes(x = purch, fill = email)) +
+  geom_histogram(binwidth = 5, alpha = 0.5, position = 'identity') +
+  xlim(0, 500) +
+  ylim(0, 3500) +
+  labs(title = 'Distribution of purchase by email') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_hc()
+```
+
+```{r}
+# As a verification, I used a t-test to check if the purchase amount difference
+## between email and non-email group is significant. A p-value much smaller than 0.05
+## shows that the difference is statistically. Thus, we have strong evidence to
+## reject the null hypothesis that the mean purchase amounts between the two groups
+## are the same.
+t.test(purch ~ email, data = data)
+```
