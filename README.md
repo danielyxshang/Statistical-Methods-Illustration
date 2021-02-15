@@ -92,29 +92,29 @@ This project is separated into several parts - Classification Methods, Statistic
 ### Generalized Additive Model
   A simple example of Generalized Additive Model (GAM) is covered in this part
 
-    The resources I used while working on this part include:
+   The resources I used while working on this part include:
 
-    A video:
+   A video:
 
       https://www.youtube.com/watch?v=sgw4cu8hrZM&t=4126s&ab_channel=GavinSimpson
 
-    Resources from:
+   Resources from:
 
       bit.ly/gam-webinar-zip
 
-    Data source:
+   Data source:
 
       https://bit.ly/hadcruvt4
 
 ### A/B Testing
   An example of A/B Testing is covered in this parts
 
-    The resources I used while working on this part include:
+   The resources I used while working on this part include:
 
-    A video:
+   A video:
 
       https://www.youtube.com/watch?v=QXpYtM-Zlxg&ab_channel=R-LadiesPhilly
 
-    Data source:
+   Data source:
 
       https://raw.githubusercontent.com/eleafeit/ab_test/master/code/test_data.csv
