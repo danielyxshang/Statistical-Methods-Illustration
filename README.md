@@ -19,7 +19,7 @@ This project is separated into several parts - Classification Methods, Statistic
       https://www.youtube.com/user/westlandindia
 
 
-    Data from:
+   Data from:
 
       https://www.kaggle.com/eswarchandt/admission
 
